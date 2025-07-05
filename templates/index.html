@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Powered Healthcare</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.ico') }}">
+</head>
+<body>
+    <header>
+        <h1>AI Powered Healthcare</h1>
+    </header>
+    <div class="container">
+        <section class="feature-box">
+            <div class="header-section">
+                <h2>Disease Analysis</h2>
+                <p>Leverage cutting-edge AI to analyze medical data for potential health insights. Choose a service to analyze images or text using advanced AI technologies.</p>
+            </div>
+
+            <div class="service-selection">
+                <select id="service-select" name="service" onchange="showServiceForm()">
+                    <option value="" disabled selected>Select a Service</option>
+                    <option value="computer-vision">Computer Vision Analysis</option>
+                    <option value="sentiment-analysis">Sentiment Analysis</option>
+                </select>
+                <button id="choose-service-btn" class="service-btn">Choose this Service</button>
+            </div>
+
+            <div id="upload-box" class="upload-box" {% if service_chosen %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                <form id="upload-form" method="POST" enctype="multipart/form-data" class="upload-form">
+                    <input type="hidden" name="service" id="hidden-service">
+                    <div id="computer-vision-form" style="display: none;">
+                        <label for="image" class="custom-file-upload">Choose an Image (JPG/JPEG)</label>
+                        <input type="file" name="image" id="image" accept=".jpg,.jpeg">
+                    </div>
+                    <div id="text-form" style="display: none;">
+                        <label for="text_file" class="custom-file-upload">Choose a Text File (TXT)</label>
+                        <input type="file" name="text_file" id="text_file" accept=".txt">
+                    </div>
+                    <button type="submit">Generate Report</button>
+                </form>
+
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        <div class="flash">
+                            {% for message in messages %}
+                                <p>{{ message }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <div id="result-box" class="result-box" {% if result %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                {% if image_path %}
+                    <div class="image-container">
+                        <h3>Uploaded Image</h3>
+                        <img src="{{ url_for('static', filename=image_path) }}" alt="Uploaded Image">
+                    </div>
+                {% endif %}
+
+                {% if result %}
+                    <div class="result-container">
+                        {% if result.error %}
+                            <h3>Error</h3>
+                            <p class="error">{{ result.error }}</p>
+                        {% else %}
+                            {% if selected_service == "computer-vision" %}
+                                {% if result.caption %}
+                                    <h3>Caption</h3>
+                                    <p>{{ result.caption.text }} <span>(Confidence: {{ "%.4f"|format(result.caption.confidence) }})</span></p>
+                                {% endif %}
+                                {% if result.dense_captions.list %}
+                                    <h3>Dense Captions</h3>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Text</th>
+                                                <th>Confidence</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for cap in result.dense_captions.list %}
+                                                <tr>
+                                                    <td>{{ cap.text }}</td>
+                                                    <td>{{ "%.4f"|format(cap.confidence) }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% endif %}
+                                {% if result.tags.list %}
+                                    <h3>Tags</h3>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Confidence</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for tag in result.tags.list %}
+                                                <tr>
+                                                    <td>{{ tag.name }}</td>
+                                                    <td>{{ "%.4f"|format(tag.confidence) }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% endif %}
+                            {% elif selected_service == "sentiment-analysis" %}
+                                <h3>Sentiment Analysis Results</h3>
+                                <p><strong>Overall Sentiment:</strong> {{ result.sentiment }}</p>
+                                <p><strong>Confidence Scores:</strong></p>
+                                <ul>
+                                    <li>Positive: {{ "%.4f"|format(result.confidence_scores.positive) }}</li>
+                                    <li>Neutral: {{ "%.4f"|format(result.confidence_scores.neutral) }}</li>
+                                    <li>Negative: {{ "%.4f"|format(result.confidence_scores.negative) }}</li>
+                                </ul>
+                                {% if result.sentences %}
+                                    <h4>Sentence-Level Analysis</h4>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Text</th>
+                                                <th>Sentiment</th>
+                                                <th>Positive</th>
+                                                <th>Neutral</th>
+                                                <th>Negative</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for sentence in result.sentences %}
+                                                <tr>
+                                                    <td>{{ sentence.text }}</td>
+                                                    <td>{{ sentence.sentiment }}</td>
+                                                    <td>{{ "%.4f"|format(sentence.confidence_scores.positive) }}</td>
+                                                    <td>{{ "%.4f"|format(sentence.confidence_scores.neutral) }}</td>
+                                                    <td>{{ "%.4f"|format(sentence.confidence_scores.negative) }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="retry-section">
+                        <button id="retry-btn" class="retry-btn">Retry: Use this Service</button>
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+
+    <div class="chatbot-icon" id="chatbot-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+        </svg>
+    </div>
+
+    <div class="chatbot-popup" id="chatbot-popup" style="display: none;">
+        <div class="chatbot-header">
+            <h3>Healthcare Assistant</h3>
+            <button class="chatbot-close" id="chatbot-close">✖</button>
+        </div>
+        <div class="chatbot-messages" id="chatbot-messages">
+            <div class="bot-message">Hello! I'm your healthcare assistant. How can I help you today?</div>
+        </div>
+        <div class="chatbot-input">
+            <input type="text" id="chatbot-input" placeholder="Type your question...">
+            <button id="chatbot-send" class="chatbot-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        function showServiceForm() {
+            const service = document.getElementById('service-select').value;
+            document.getElementById('hidden-service').value = service;
+            document.getElementById('computer-vision-form').style.display = service === 'computer-vision' ? 'block' : 'none';
+            document.getElementById('text-form').style.display = service === 'sentiment-analysis' ? 'block' : 'none';
+            document.getElementById('choose-service-btn').style.display = 'block';
+        }
+
+        document.getElementById('choose-service-btn').addEventListener('click', function() {
+            const service = document.getElementById('service-select').value;
+            if (service) {
+                document.getElementById('upload-box').style.display = 'block';
+                document.getElementById('choose-service-btn').style.display = 'none';
+                document.getElementById('service-select').disabled = true;
+            }
+        });
+
+        document.getElementById('retry-btn')?.addEventListener('click', function() {
+            document.getElementById('result-box').style.display = 'none';
+            document.getElementById('upload-box').style.display = 'block';
+        });
+
+        // Improved Chatbot functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatbotIcon = document.getElementById('chatbot-icon');
+            const chatbotPopup = document.getElementById('chatbot-popup');
+            const chatbotClose = document.getElementById('chatbot-close');
+            const chatMessages = document.getElementById('chatbot-messages');
+            const chatInput = document.getElementById('chatbot-input');
+            const chatSendBtn = document.getElementById('chatbot-send');
+
+            // Ensure chatbot elements exist
+            if (!chatbotIcon || !chatbotPopup || !chatMessages || !chatInput || !chatSendBtn) {
+                console.error("Chatbot elements not found");
+                return;
+            }
+
+            chatbotIcon.addEventListener('click', () => {
+                chatbotPopup.style.display = 'block';
+                chatbotIcon.style.display = 'none';
+                // Focus on input when chatbot opens
+                setTimeout(() => chatInput.focus(), 300);
+            });
+
+            chatbotClose.addEventListener('click', () => {
+                chatbotPopup.style.display = 'none';
+                chatbotIcon.style.display = 'flex';
+            });
+
+            // Function to add message and ensure scrolling works properly
+            function addMessage(message, isUser = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('chat-message', isUser ? 'user-message' : 'bot-message');
+                messageDiv.textContent = message;
+                chatMessages.appendChild(messageDiv);
+                
+                // Force scroll to bottom after adding message
+                setTimeout(() => {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }, 10);
+            }
+
+            async function sendMessage() {
+                const message = chatInput.value.trim();
+                if (!message) return;
+
+                addMessage(message, true);
+                chatInput.value = '';
+                
+                // Focus back on input after sending
+                chatInput.focus();
+
+                try {
+                    // For demo purposes, simulate a response if no backend
+                    const demoResponses = [
+                        "I understand your concern. Could you provide more details about your symptoms?",
+                        "Based on the information you've shared, I recommend consulting with a healthcare professional.",
+                        "That's a common question. The recommended guidelines suggest...",
+                        "I'm here to help with general health information, but remember to consult a doctor for personalized advice."
+                    ];
+
+                    try {
+                        const response = await fetch('/chat', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            addMessage(data.response);
+                        } else {
+                            // If server route not available, use demo response
+                            const randomResponse = demoResponses[Math.floor(Math.random() * demoResponses.length)];
+                            setTimeout(() => addMessage(randomResponse), 800);
+                        }
+                    } catch (error) {
+                        console.log("Using demo response instead:", error);
+                        const randomResponse = demoResponses[Math.floor(Math.random() * demoResponses.length)];
+                        setTimeout(() => addMessage(randomResponse), 800);
+                    }
+                } catch (error) {
+                    console.error("Error in chat functionality:", error);
+                    addMessage("Sorry, there was an error processing your request. Please try again.");
+                }
+            }
+
+            chatSendBtn.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        });
+    </script>
+</body>
+</html>
+
